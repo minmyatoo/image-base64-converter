@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image to Base64 Converter</title>
+
+    <!-- Material UI and Required Dependencies -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.21.2/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mui/3.7.1/mui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/material-ui/4.12.4/umd/material-ui.production.min.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: "Roboto", sans-serif;
+        background-color: #f5f5f5;
+        transition: background-color 0.3s ease;
+      }
+      body.dark-mode {
+        background-color: #303030;
+        color: #fff;
+      }
+      #root {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .preview-image {
+        max-width: 100%;
+        max-height: 300px;
+        margin-top: 20px;
+      }
+      .base64-container {
+        margin-top: 20px;
+      }
+      .button-container {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .file-details {
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 4px;
+        background-color: #f0f0f0;
+      }
+      .dark-mode .file-details {
+        background-color: #424242;
+      }
+      .canvas-container {
+        margin-top: 20px;
+        border: 1px solid #ccc;
+        display: inline-block;
+      }
+      .url-input-container {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        align-items: center;
+      }
+      .url-input {
+        flex-grow: 1;
+      }
+      .image-settings {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .history-item {
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 4px;
+        background-color: #f0f0f0;
+        cursor: pointer;
+      }
+      .dark-mode .history-item {
+        background-color: #424242;
+      }
+      .history-item:hover {
+        background-color: #e0e0e0;
+      }
+      .dark-mode .history-item:hover {
+        background-color: #505050;
+      }
+      .paste-area {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        margin-top: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .paste-area:hover {
+        border-color: #2196f3;
+        background-color: rgba(33, 150, 243, 0.05);
+      }
+      .dark-mode .paste-area {
+        border-color: #555;
+      }
+      .dark-mode .paste-area:hover {
+        border-color: #90caf9;
+        background-color: rgba(144, 202, 249, 0.1);
+      }
+      .footer {
+        margin-top: 30px;
+        text-align: center;
+        padding: 10px;
+        font-size: 14px;
+        color: #777;
+        border-top: 1px solid #eee;
+      }
+      .dark-mode .footer {
+        color: #aaa;
+        border-top: 1px solid #444;
+      }
+      .about-tab {
+        text-align: center;
+        padding: 20px;
+      }
+      .creator-info {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f8f8;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .dark-mode .creator-info {
+        background-color: #424242;
+      }
+      .avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        margin: 0 auto 15px auto;
+        background-color: #2196f3;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+      }
+      .drag-active {
+        border-color: #2196f3;
+        background-color: rgba(33, 150, 243, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const {
+        Button,
+        TextField,
+        Typography,
+        Paper,
+        Container,
+        Box,
+        AppBar,
+        Toolbar,
+        Snackbar,
+        IconButton,
+        Slider,
+        Select,
+        MenuItem,
+        FormControl,
+        InputLabel,
+        Switch,
+        FormControlLabel,
+        Divider,
+        Grid,
+        Tab,
+        Tabs,
+        CircularProgress,
+        Tooltip,
+        Card,
+        CardContent,
+        Badge,
+        Chip,
+      } = MaterialUI;
+
+      function ImageToBase64Converter() {
+        const [imagePreview, setImagePreview] = React.useState(null);
+        const [base64String, setBase64String] = React.useState("");
+        const [snackbarOpen, setSnackbarOpen] = React.useState(false);
+        const [snackbarMessage, setSnackbarMessage] = React.useState("");
+        const [originalFile, setOriginalFile] = React.useState(null);
+        const [fileDetails, setFileDetails] = React.useState(null);
+        const [imageUrl, setImageUrl] = React.useState("");
+        const [isLoading, setIsLoading] = React.useState(false);
+        const [quality, setQuality] = React.useState(90);
+        const [format, setFormat] = React.useState("original");
+        const [width, setWidth] = React.useState(0);
+        const [height, setHeight] = React.useState(0);
+        const [maintainAspectRatio, setMaintainAspectRatio] =
+          React.useState(true);
+        const [darkMode, setDarkMode] = React.useState(false);
+        const [currentTab, setCurrentTab] = React.useState(0);
+        const [history, setHistory] = React.useState([]);
+        const [showOnlyBase64Data, setShowOnlyBase64Data] =
+          React.useState(false);
+        const [isDragActive, setIsDragActive] = React.useState(false);
+        const [isCompressing, setIsCompressing] = React.useState(false);
+        const [compressionProgress, setCompressionProgress] = React.useState(0);
+
+        const fileInputRef = React.useRef(null);
+        const canvasRef = React.useRef(null);
+        const fileUrlRef = React.useRef(null);
+        const pasteAreaRef = React.useRef(null);
+
+        // Initialize from localStorage if available
+        React.useEffect(() => {
+          const savedDarkMode = localStorage.getItem("darkMode") === "true";
+          setDarkMode(savedDarkMode);
+
+          try {
+            const savedHistory = JSON.parse(
+              localStorage.getItem("conversionHistory")
+            );
+            if (Array.isArray(savedHistory)) {
+              setHistory(savedHistory.slice(0, 10)); // Limit to 10 items
+            }
+          } catch (e) {
+            console.error("Failed to load history from localStorage", e);
+          }
+        }, []);
+
+        // Apply dark mode
+        React.useEffect(() => {
+          if (darkMode) {
+            document.body.classList.add("dark-mode");
+          } else {
+            document.body.classList.remove("dark-mode");
+          }
+          localStorage.setItem("darkMode", darkMode.toString());
+        }, [darkMode]);
+
+        // Setup clipboard paste and drag & drop events
+        React.useEffect(() => {
+          // Clipboard paste event
+          const handlePaste = (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData)
+              .items;
+            for (let i = 0; i < items.length; i++) {
+              if (items[i].type.indexOf("image") !== -1) {
+                const blob = items[i].getAsFile();
+                handleFile(blob, "Pasted image");
+                e.preventDefault();
+                return;
+              }
+            }
+          };
+
+          // Global paste event listener
+          document.addEventListener("paste", handlePaste);
+
+          // Drag and drop events
+          const handleDragOver = (e) => {
+            e.preventDefault();
+            setIsDragActive(true);
+          };
+
+          const handleDragLeave = (e) => {
+            e.preventDefault();
+            setIsDragActive(false);
+          };
+
+          const handleDrop = (e) => {
+            e.preventDefault();
+            setIsDragActive(false);
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+              const file = files[0];
+              if (file.type.match("image.*")) {
+                handleFile(file, file.name);
+              } else {
+                setSnackbarMessage("Please drop an image file");
+                setSnackbarOpen(true);
+              }
+            }
+          };
+
+          // Add drag & drop event listeners to the document
+          document.addEventListener("dragover", handleDragOver);
+          document.addEventListener("dragleave", handleDragLeave);
+          document.addEventListener("drop", handleDrop);
+
+          // Cleanup event listeners
+          return () => {
+            document.removeEventListener("paste", handlePaste);
+            document.removeEventListener("dragover", handleDragOver);
+            document.removeEventListener("dragleave", handleDragLeave);
+            document.removeEventListener("drop", handleDrop);
+          };
+        }, []);
+
+        const handleFile = (file, source = null) => {
+          if (!file) return;
+
+          setIsLoading(true);
+          setOriginalFile(file);
+
+          // Extract file details
+          const details = {
+            name: source || file.name,
+            type: file.type,
+            size: formatBytes(file.size),
+            lastModified: file.lastModified
+              ? new Date(file.lastModified).toLocaleString()
+              : new Date().toLocaleString(),
+            source:
+              source === "Pasted image"
+                ? "Clipboard"
+                : source
+                ? source
+                : "File upload",
+          };
+          setFileDetails(details);
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            processImage(e.target.result);
+          };
+          reader.readAsDataURL(file);
+        };
+
+        const handleFileChange = (event) => {
+          const file = event.target.files[0];
+          if (file) {
+            handleFile(file);
+          }
+        };
+
+        const handleUrlSubmit = () => {
+          if (!imageUrl) return;
+
+          setIsLoading(true);
+
+          // CORS might prevent direct loading, so inform the user
+          fetch(imageUrl)
+            .then((response) => {
+              if (!response.ok) throw new Error("Network response was not ok");
+              return response.blob();
+            })
+            .then((blob) => {
+              const file = new File([blob], "downloaded-image", {
+                type: blob.type,
+              });
+              handleFile(file, imageUrl);
+            })
+            .catch((error) => {
+              console.error("Error fetching image:", error);
+              setSnackbarMessage(
+                "Error loading image. CORS policy might prevent direct access."
+              );
+              setSnackbarOpen(true);
+              setIsLoading(false);
+            });
+        };
+
+        const processImage = (dataUrl) => {
+          const img = new Image();
+          img.onload = () => {
+            // Update dimensions
+            setWidth(img.width);
+            setHeight(img.height);
+
+            setImagePreview(dataUrl);
+
+            // Update base64 string based on settings
+            convertWithSettings(img, dataUrl);
+
+            setIsLoading(false);
+          };
+          img.src = dataUrl;
+        };
+
+        const convertWithSettings = (img, originalDataUrl) => {
+          if (format === "original" && !width && !height && quality === 90) {
+            // No changes needed, use original
+            setBase64String(originalDataUrl);
+            return;
+          }
+
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          // Apply resize if needed
+          let newWidth = width || img.width;
+          let newHeight = height || img.height;
+
+          if (maintainAspectRatio && (width || height)) {
+            const ratio = img.width / img.height;
+            if (width && !height) {
+              newHeight = Math.round(width / ratio);
+            } else if (height && !width) {
+              newWidth = Math.round(height * ratio);
+            }
+          }
+
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+
+          // Draw image onto canvas
+          ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+          // Convert to selected format with quality
+          const mimeType =
+            format === "original"
+              ? originalFile
+                ? originalFile.type
+                : "image/png"
+              : `image/${format}`;
+
+          const dataUrl = canvas.toDataURL(mimeType, quality / 100);
+          setBase64String(dataUrl);
+
+          // Save to history
+          const historyItem = {
+            preview: dataUrl,
+            details: {
+              format: mimeType,
+              dimensions: `${newWidth}x${newHeight}`,
+              quality: quality,
+              timestamp: new Date().toLocaleString(),
+            },
+          };
+
+          addToHistory(historyItem);
+        };
+
+        const addToHistory = (item) => {
+          const newHistory = [item, ...history.slice(0, 9)]; // Keep only latest 10
+          setHistory(newHistory);
+
+          try {
+            localStorage.setItem(
+              "conversionHistory",
+              JSON.stringify(newHistory)
+            );
+          } catch (e) {
+            console.error("Failed to save history to localStorage", e);
+          }
+        };
+
+        const handleHistoryItemClick = (item) => {
+          setImagePreview(item.preview);
+          setBase64String(item.preview);
+          setFileDetails({
+            ...item.details,
+            source: "History",
+            name: "Restored from history",
+          });
+        };
+
+        const handleSettingChange = () => {
+          if (!imagePreview || !originalFile) return;
+
+          setIsLoading(true);
+
+          // Re-process with new settings
+          const img = new Image();
+          img.onload = () => {
+            convertWithSettings(img, imagePreview);
+            setIsLoading(false);
+          };
+          img.src = imagePreview;
+        };
+
+        const handleCopyToClipboard = () => {
+          const textToCopy = showOnlyBase64Data
+            ? base64String.substring(base64String.indexOf(",") + 1)
+            : base64String;
+
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            setSnackbarMessage("Copied to clipboard!");
+            setSnackbarOpen(true);
+          });
+        };
+
+        const handleCopyImageToClipboard = () => {
+          if (!imagePreview) return;
+
+          // Create a temporary canvas element
+          const canvas = document.createElement("canvas");
+          const img = new Image();
+
+          img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+
+            // Convert canvas to blob
+            canvas.toBlob((blob) => {
+              // Copy image to clipboard using the Clipboard API
+              try {
+                const item = new ClipboardItem({ "image/png": blob });
+                navigator.clipboard.write([item]).then(() => {
+                  setSnackbarMessage("Image copied to clipboard!");
+                  setSnackbarOpen(true);
+                });
+              } catch (err) {
+                console.error("Failed to copy image to clipboard:", err);
+                setSnackbarMessage(
+                  "Failed to copy image to clipboard. Your browser may not support this feature."
+                );
+                setSnackbarOpen(true);
+              }
+            });
+          };
+
+          img.src = imagePreview;
+        };
+
+        const handleDownload = () => {
+          const dataStr =
+            "data:text/plain;charset=utf-8," +
+            encodeURIComponent(
+              showOnlyBase64Data
+                ? base64String.substring(base64String.indexOf(",") + 1)
+                : base64String
+            );
+          const downloadAnchorNode = document.createElement("a");
+          downloadAnchorNode.setAttribute("href", dataStr);
+          downloadAnchorNode.setAttribute("download", "base64_image.txt");
+          document.body.appendChild(downloadAnchorNode);
+          downloadAnchorNode.click();
+          downloadAnchorNode.remove();
+        };
+
+        const handleDownloadImage = () => {
+          if (!imagePreview) return;
+
+          const extension =
+            format === "original"
+              ? originalFile && originalFile.type
+                ? originalFile.type.split("/")[1]
+                : "png"
+              : format;
+
+          const filename =
+            fileDetails &&
+            fileDetails.name &&
+            fileDetails.name !== "Pasted image" &&
+            fileDetails.name !== "Restored from history"
+              ? fileDetails.name.split(".")[0]
+              : "converted-image";
+
+          const downloadLink = document.createElement("a");
+          downloadLink.href = base64String;
+          downloadLink.download = `${filename}.${extension}`;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+
+          setSnackbarMessage("Image downloaded successfully!");
+          setSnackbarOpen(true);
+        };
+
+        const handlePasteClick = () => {
+          setSnackbarMessage(
+            "Paste an image (Ctrl+V) or drag and drop an image here"
+          );
+          setSnackbarOpen(true);
+
+          // Request clipboard permission
+          try {
+            navigator.clipboard.read().then(
+              (clipboardItems) => {
+                // Permission granted, the user just needs to paste
+              },
+              (error) => {
+                // Permission denied or no clipboard content
+                console.error("Clipboard permission denied:", error);
+              }
+            );
+          } catch (e) {
+            // Browser may not support clipboard API
+            console.log(
+              "Clipboard API not fully supported, using keyboard paste instead"
+            );
+          }
+        };
+
+        const handleCloseSnackbar = () => {
+          setSnackbarOpen(false);
+        };
+
+        const handleButtonClick = () => {
+          fileInputRef.current.click();
+        };
+
+        const handleClearAll = () => {
+          setImagePreview(null);
+          setBase64String("");
+          setFileDetails(null);
+          setWidth(0);
+          setHeight(0);
+          setFormat("original");
+          setQuality(90);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        };
+
+        const formatBytes = (bytes, decimals = 2) => {
+          if (bytes === 0) return "0 Bytes";
+
+          const k = 1024;
+          const dm = decimals < 0 ? 0 : decimals;
+          const sizes = ["Bytes", "KB", "MB", "GB"];
+
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+          return (
+            parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+          );
+        };
+
+        const calculateBase64Size = () => {
+          if (!base64String) return "0 Bytes";
+          return formatBytes(base64String.length * 0.75); // Base64 is ~4/3 of the original binary size
+        };
+
+        const handleTabChange = (event, newValue) => {
+          setCurrentTab(newValue);
+        };
+
+        const compressMoreAggressive = () => {
+          if (!imagePreview) return;
+
+          setIsCompressing(true);
+          setCompressionProgress(0);
+
+          // Create a progress indicator
+          const updateProgress = (progress) => {
+            setCompressionProgress(progress);
+          };
+
+          // Load the image
+          const img = new Image();
+          img.onload = () => {
+            updateProgress(20);
+
+            // Create a small canvas for compression
+            const canvas = document.createElement("canvas");
+
+            // Calculate new dimensions (reduce by 50% if larger than 1000px)
+            let newWidth = img.width;
+            let newHeight = img.height;
+
+            const maxDimension = 800; // Max dimension for aggressive compression
+
+            if (Math.max(newWidth, newHeight) > maxDimension) {
+              if (newWidth > newHeight) {
+                newHeight = Math.round(newHeight * (maxDimension / newWidth));
+                newWidth = maxDimension;
+              } else {
+                newWidth = Math.round(newWidth * (maxDimension / newHeight));
+                newHeight = maxDimension;
+              }
+            }
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+
+            updateProgress(40);
+
+            // Draw image on canvas with smoothing
+            const ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+            updateProgress(60);
+
+            // Convert to JPEG with low quality
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.5);
+
+            updateProgress(80);
+
+            // Update the image preview and base64 string
+            setImagePreview(compressedDataUrl);
+            setBase64String(compressedDataUrl);
+
+            // Update width and height
+            setWidth(newWidth);
+            setHeight(newHeight);
+
+            // Update format and quality
+            setFormat("jpeg");
+            setQuality(50);
+
+            updateProgress(100);
+
+            // Save to history
+            const historyItem = {
+              preview: compressedDataUrl,
+              details: {
+                format: "image/jpeg",
+                dimensions: `${newWidth}x${newHeight}`,
+                quality: 50,
+                timestamp: new Date().toLocaleString(),
+              },
+            };
+
+            addToHistory(historyItem);
+
+            // Update file details
+            if (fileDetails) {
+              setFileDetails({
+                ...fileDetails,
+                type: "image/jpeg",
+                size: formatBytes(compressedDataUrl.length * 0.75),
+              });
+            }
+
+            setTimeout(() => {
+              setIsCompressing(false);
+              setSnackbarMessage("Image aggressively compressed!");
+              setSnackbarOpen(true);
+            }, 500);
+          };
+
+          img.src = imagePreview;
+        };
+
+        return (
+          <Container>
+            <AppBar position="static" style={{ marginBottom: "20px" }}>
+              <Toolbar style={{ justifyContent: "space-between" }}>
+                <Typography variant="h6">Image to Base64 Converter</Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={darkMode}
+                      onChange={() => setDarkMode(!darkMode)}
+                      color="secondary"
+                    />
+                  }
+                  label="Dark Mode"
+                />
+              </Toolbar>
+            </AppBar>
+
+            <Paper style={{ padding: "20px" }}>
+              <Tabs
+                value={currentTab}
+                onChange={handleTabChange}
+                indicatorColor="primary"
+                textColor="primary"
+                variant="fullWidth"
+                style={{ marginBottom: "20px" }}
+              >
+                <Tab label="Convert" />
+                <Tab label="History" />
+                <Tab label="About" />
+              </Tabs>
+
+              {currentTab === 0 && (
+                <div>
+                  <Box mb={2}>
+                    <Typography variant="body1" gutterBottom>
+                      Select an image to convert it to a Base64 string, or
+                      paste/drop an image directly.
+                    </Typography>
+                  </Box>
+
+                  <input
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    id="contained-button-file"
+                    type="file"
+                    onChange={handleFileChange}
+                    ref={fileInputRef}
+                  />
+
+                  <div className="button-container">
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleButtonClick}
+                      startIcon={
+                        <span className="material-icons">upload_file</span>
+                      }
+                    >
+                      Select Image
+                    </Button>
+
+                    {imagePreview && (
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={handleClearAll}
+                        startIcon={
+                          <span className="material-icons">clear</span>
+                        }
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
+
+                  <div
+                    className={`paste-area ${
+                      isDragActive ? "drag-active" : ""
+                    }`}
+                    onClick={handlePasteClick}
+                    ref={pasteAreaRef}
+                  >
+                    <span
+                      className="material-icons"
+                      style={{ fontSize: "48px", opacity: 0.5 }}
+                    >
+                      content_paste
+                    </span>
+                    <Typography variant="body1" style={{ marginTop: "10px" }}>
+                      Paste image from clipboard (Ctrl+V) or drag & drop image
+                      here
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="textSecondary"
+                      style={{ display: "block", marginTop: "5px" }}
+                    >
+                      Supports JPEG, PNG, GIF, WebP, and other common image
+                      formats
+                    </Typography>
+                  </div>
+
+                  <div className="url-input-container">
+                    <TextField
+                      className="url-input"
+                      label="Image URL"
+                      variant="outlined"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      size="small"
+                    />
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleUrlSubmit}
+                      disabled={!imageUrl}
+                      startIcon={<span className="material-icons">link</span>}
+                    >
+                      Load URL
+                    </Button>
+                  </div>
+
+                  {isLoading && (
+                    <Box display="flex" justifyContent="center" mt={3}>
+                      <CircularProgress />
+                    </Box>
+                  )}
+
+                  {isCompressing && (
+                    <Box
+                      display="flex"
+                      flexDirection="column"
+                      alignItems="center"
+                      mt={3}
+                    >
+                      <Typography variant="body2" gutterBottom>
+                        Compressing image...
+                      </Typography>
+                      <Box width="100%" mt={1}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={compressionProgress}
+                          style={{
+                            width: "100%",
+                            height: "8px",
+                            borderRadius: "4px",
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  )}
+
+                  {fileDetails && !isLoading && !isCompressing && (
+                    <div className="file-details">
+                      <Typography variant="subtitle2">File Details:</Typography>
+                      <Grid container spacing={1}>
+                        <Grid item xs={6} md={3}>
+                          <Typography variant="body2">
+                            <strong>Name:</strong> {fileDetails.name}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} md={3}>
+                          <Typography variant="body2">
+                            <strong>Type:</strong> {fileDetails.type}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} md={3}>
+                          <Typography variant="body2">
+                            <strong>Size:</strong> {fileDetails.size}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} md={3}>
+                          <Typography variant="body2">
+                            <strong>Base64 Size:</strong>{" "}
+                            {calculateBase64Size()}
+                          </Typography>
+                        </Grid>
+                        {fileDetails.lastModified && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2">
+                              <strong>Last Modified:</strong>{" "}
+                              {fileDetails.lastModified}
+                            </Typography>
+                          </Grid>
+                        )}
+                        {fileDetails.source && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2">
+                              <strong>Source:</strong> {fileDetails.source}
+                            </Typography>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </div>
+                  )}
+
+                  {imagePreview && !isLoading && !isCompressing && (
+                    <div>
+                      <div className="image-settings">
+                        <Typography variant="subtitle1" gutterBottom>
+                          Image Settings
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth margin="normal" size="small">
+                              <InputLabel>Format</InputLabel>
+                              <Select
+                                value={format}
+                                onChange={(e) => {
+                                  setFormat(e.target.value);
+                                  setTimeout(handleSettingChange, 0);
+                                }}
+                                label="Format"
+                              >
+                                <MenuItem value="original">Original</MenuItem>
+                                <MenuItem value="jpeg">JPEG</MenuItem>
+                                <MenuItem value="png">PNG</MenuItem>
+                                <MenuItem value="webp">WebP</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Grid>
+
+                          <Grid item xs={12} sm={6}>
+                            <Box mt={2}>
+                              <Typography gutterBottom>
+                                Quality: {quality}%
+                              </Typography>
+                              <Slider
+                                value={quality}
+                                onChange={(e, newValue) => setQuality(newValue)}
+                                onChangeCommitted={handleSettingChange}
+                                min={10}
+                                max={100}
+                                step={5}
+                                marks
+                                valueLabelDisplay="auto"
+                              />
+                            </Box>
+                          </Grid>
+
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Width (px)"
+                              type="number"
+                              value={width || ""}
+                              onChange={(e) => {
+                                setWidth(parseInt(e.target.value) || 0);
+                              }}
+                              onBlur={handleSettingChange}
+                              fullWidth
+                              margin="normal"
+                              size="small"
+                              InputProps={{
+                                endAdornment: (
+                                  <span className="material-icons">width</span>
+                                ),
+                              }}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Height (px)"
+                              type="number"
+                              value={height || ""}
+                              onChange={(e) => {
+                                setHeight(parseInt(e.target.value) || 0);
+                              }}
+                              onBlur={handleSettingChange}
+                              fullWidth
+                              margin="normal"
+                              size="small"
+                              InputProps={{
+                                endAdornment: (
+                                  <span className="material-icons">height</span>
+                                ),
+                              }}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12}>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={maintainAspectRatio}
+                                  onChange={() => {
+                                    setMaintainAspectRatio(
+                                      !maintainAspectRatio
+                                    );
+                                    setTimeout(handleSettingChange, 0);
+                                  }}
+                                  color="primary"
+                                />
+                              }
+                              label="Maintain Aspect Ratio"
+                            />
+                          </Grid>
+
+                          <Grid item xs={12}>
+                            <Button
+                              variant="contained"
+                              color="secondary"
+                              startIcon={
+                                <span className="material-icons">compress</span>
+                              }
+                              onClick={compressMoreAggressive}
+                              style={{ marginTop: "10px" }}
+                            >
+                              Aggressive Compression
+                            </Button>
+                            <Typography
+                              variant="caption"
+                              color="textSecondary"
+                              style={{ display: "block", marginTop: "5px" }}
+                            >
+                              Significantly reduces file size (converts to JPEG,
+                              reduces dimensions and quality)
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </div>
+
+                      <Typography
+                        variant="h6"
+                        gutterBottom
+                        style={{ marginTop: "20px" }}
+                      >
+                        Image Preview:
+                      </Typography>
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="preview-image"
+                      />
+
+                      <Box mt={2} display="flex" gap={1} flexWrap="wrap">
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={handleCopyImageToClipboard}
+                          startIcon={
+                            <span className="material-icons">image</span>
+                          }
+                        >
+                          Copy Image to Clipboard
+                        </Button>
+
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={handleDownloadImage}
+                          startIcon={
+                            <span className="material-icons">
+                              file_download
+                            </span>
+                          }
+                        >
+                          Download Image
+                        </Button>
+                      </Box>
+
+                      <div className="base64-container">
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="space-between"
+                        >
+                          <Typography variant="h6" gutterBottom>
+                            Base64 String:
+                          </Typography>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={showOnlyBase64Data}
+                                onChange={() =>
+                                  setShowOnlyBase64Data(!showOnlyBase64Data)
+                                }
+                                color="primary"
+                                size="small"
+                              />
+                            }
+                            label="Data only (no MIME prefix)"
+                          />
+                        </Box>
+
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={4}
+                          variant="outlined"
+                          value={
+                            showOnlyBase64Data
+                              ? base64String.substring(
+                                  base64String.indexOf(",") + 1
+                                )
+                              : base64String
+                          }
+                          InputProps={{
+                            readOnly: true,
+                          }}
+                        />
+
+                        <Box mt={2} display="flex" gap={1} flexWrap="wrap">
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleCopyToClipboard}
+                            startIcon={
+                              <span className="material-icons">
+                                content_copy
+                              </span>
+                            }
+                          >
+                            Copy to Clipboard
+                          </Button>
+
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            onClick={handleDownload}
+                            startIcon={
+                              <span className="material-icons">download</span>
+                            }
+                          >
+                            Download as Text
+                          </Button>
+                        </Box>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {currentTab === 1 && (
+                <div>
+                  <Typography variant="h6" gutterBottom>
+                    Conversion History
+                  </Typography>
+
+                  {history.length === 0 ? (
+                    <Typography variant="body1">
+                      No conversion history yet. Convert some images to see them
+                      here.
+                    </Typography>
+                  ) : (
+                    <div>
+                      {history.map((item, index) => (
+                        <div
+                          key={index}
+                          className="history-item"
+                          onClick={() => handleHistoryItemClick(item)}
+                        >
+                          <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={3}>
+                              <img
+                                src={item.preview}
+                                alt={`History item ${index}`}
+                                style={{
+                                  width: "100%",
+                                  maxHeight: "80px",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            </Grid>
+                            <Grid item xs={9}>
+                              <Typography variant="body2">
+                                <strong>Format:</strong> {item.details.format}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Dimensions:</strong>{" "}
+                                {item.details.dimensions}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Quality:</strong> {item.details.quality}
+                                %
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Converted:</strong>{" "}
+                                {item.details.timestamp}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+                        </div>
+                      ))}
+
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={() => {
+                          setHistory([]);
+                          localStorage.removeItem("conversionHistory");
+                        }}
+                        startIcon={
+                          <span className="material-icons">delete</span>
+                        }
+                        style={{ marginTop: "15px" }}
+                      >
+                        Clear History
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {currentTab === 2 && (
+                <div className="about-tab">
+                  <Typography variant="h5" gutterBottom>
+                    About this Application
+                  </Typography>
+
+                  <Typography variant="body1" paragraph>
+                    This is a client-side tool for converting images to Base64
+                    encoded strings. All processing happens in your browser - no
+                    data is sent to any server.
+                  </Typography>
+
+                  <Typography variant="body1" paragraph>
+                    Base64 encoding is commonly used when you need to embed
+                    image data directly in HTML, CSS, JSON, or other text-based
+                    formats. It converts binary data into ASCII text, making it
+                    safe for transport in contexts where binary data isn't
+                    allowed.
+                  </Typography>
+
+                  <div className="creator-info">
+                    <div className="avatar">MMO</div>
+                    <Typography variant="h6">Created by</Typography>
+                    <Typography
+                      variant="h5"
+                      gutterBottom
+                      style={{ fontWeight: "bold" }}
+                    >
+                      Min Myat Oo
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Oracle NetSuite Developer
+                    </Typography>
+                  </div>
+
+                  <Box mt={4}>
+                    <Typography variant="h6" gutterBottom>
+                      Features
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Paper style={{ padding: "15px", height: "100%" }}>
+                          <span
+                            className="material-icons"
+                            style={{
+                              fontSize: "36px",
+                              color: "#2196f3",
+                              marginBottom: "10px",
+                            }}
+                          >
+                            image
+                          </span>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Multiple Input Methods
+                          </Typography>
+                          <Typography variant="body2">
+                            Upload, paste, drag & drop images or load from URL
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Paper style={{ padding: "15px", height: "100%" }}>
+                          <span
+                            className="material-icons"
+                            style={{
+                              fontSize: "36px",
+                              color: "#2196f3",
+                              marginBottom: "10px",
+                            }}
+                          >
+                            tune
+                          </span>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Image Processing
+                          </Typography>
+                          <Typography variant="body2">
+                            Change format, quality, dimensions, and compression
+                            level
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={4}>
+                        <Paper style={{ padding: "15px", height: "100%" }}>
+                          <span
+                            className="material-icons"
+                            style={{
+                              fontSize: "36px",
+                              color: "#2196f3",
+                              marginBottom: "10px",
+                            }}
+                          >
+                            history
+                          </span>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Conversion History
+                          </Typography>
+                          <Typography variant="body2">
+                            Track and reuse your recent image conversions
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </div>
+              )}
+            </Paper>
+
+            <footer className="footer">
+              <Typography variant="body2">
+                © 2025 Min Myat Oo | Image to Base64 Converter | No server
+                processing - your data stays private
+              </Typography>
+            </footer>
+
+            <Snackbar
+              open={snackbarOpen}
+              autoHideDuration={3000}
+              onClose={handleCloseSnackbar}
+              message={snackbarMessage}
+            />
+          </Container>
+        );
+      }
+
+      const LinearProgress = ({ value, ...props }) => {
+        return (
+          <div {...props}>
+            <div
+              style={{
+                width: `${value}%`,
+                backgroundColor: "#2196f3",
+                height: "100%",
+                borderRadius: "inherit",
+                transition: "width 0.3s ease",
+              }}
+            ></div>
+          </div>
+        );
+      };
+
+      ReactDOM.render(
+        <ImageToBase64Converter />,
+        document.getElementById("root")
+      );
+    </script>
+  </body>
+</html>
